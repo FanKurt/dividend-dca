@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存股成本管理助手</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        /* 移除固定的 max-width，改用響應式設計 */
+		body {
+			background-color: #f5f5f7;
+			/* 移除 max-width: 500px; */
+			margin: 0;
+			box-shadow: none; /* 移除陰影，讓內容填滿 */
+		}
+
+		/* 添加容器來限制最大寬度 */
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+			width: 100%;
+		}
+		
+		/* 底部導航 */
+		.bottom-nav {
+			box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+			/* 移除 max-w-500 相關設定 */
+		}
+
+		/* 桌面版樣式 */
+		@media (min-width: 768px) {
+			body {
+				padding: 20px;
+				background-color: #f0f2f5;
+			}
+			
+			.bottom-nav {
+				display: none !important; /* 強制隱藏 */
+			}
+			
+			/* 同時移除底部 padding */
+			main {
+				padding-bottom: 0 !important;
+			}
+					
+			/* 創建主容器 */
+			#app {
+				max-width: 1200px;
+				margin: 0 auto;
+				background-color: white;
+				border-radius: 15px;
+				box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+				overflow: hidden;
+			}
+			
+			/* 調整頂部導航 */
+			header {
+				border-radius: 15px 15px 0 0;
+				margin-bottom: 0;
+			}
+			
+			/* 調整底部導航 - 桌面版隱藏 */
+			.bottom-nav {
+				display: none;
+			}
+			
+			/* 主內容區 */
+			main {
+				display: block;
+				padding-bottom: 0;
+			}
+			
+			/* 儀表板頁面特定調整 */
+			#dashboard .p-4 {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 20px;
+			}
+			
+			/* 卡片統一寬度 */
+			.card-shadow {
+				margin-bottom: 20px;
+			}
+		}
+
+		/* 超大螢幕 */
+		@media (min-width: 1024px) {
+			#dashboard .p-4 {
+				grid-template-columns: 2fr 1fr;
+			}
+		}
+				
+        .card-shadow {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        }
+        
+        .gradient-green {
+            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        }
+        
+        .gradient-blue {
+            background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+        }
+        
+        .gradient-orange {
+            background: linear-gradient(135deg, #f46b45 0%, #eea849 100%);
+        }
+        
+        .gradient-purple {
+            background: linear-gradient(135deg, #8A2BE2 0%, #9370DB 100%);
+        }
+        
+        .bottom-nav {
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .slide-enter-active,
+        .slide-leave-active {
+            transition: all 0.3s ease;
+        }
+        
+        .slide-enter-from,
+        .slide-leave-to {
+            transform: translateX(20px);
+            opacity: 0;
+        }
+        
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+        
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* 修改價格變化的顏色 */
+		.price-up {
+			color: #EF4444; /* 紅色 - 台灣習慣的上漲顏色 */
+			animation: pulse-red 1s;
+		}
+		
+		.price-down {
+			color: #10B981; /* 綠色 - 台灣習慣的下跌顏色 */
+			animation: pulse-green 1s;
+		}
+		
+		@keyframes pulse-red {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.5; }
+		}
+		
+		@keyframes pulse-green {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.5; }
+		}
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 頂部導航欄 -->
+        <header class="gradient-bg text-white p-4 sticky top-0 z-10">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">存股成本管理</h1>
+                <div class="flex space-x-3">
+                    <button @click="showImportExport = true" class="p-2 rounded-full bg-white/20">
+                        <i class="fas fa-database"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 頁面標籤 -->
+            <div class="flex mt-4">
+                <button 
+                    v-for="(tab, index) in tabs" 
+                    :key="index"
+                    @click="currentTab = tab.id"
+                    :class="[
+                        'flex-1 py-2 text-center rounded-t-lg font-medium transition-all',
+                        currentTab === tab.id 
+                            ? 'bg-white text-blue-600' 
+                            : 'text-white/80 hover:text-white'
+                    ]"
+                >
+                    {{ tab.name }}
+                </button>
+            </div>
+        </header>
+
+        <main class="pb-20">
+            <!-- 儀表板頁面 -->
+            <div v-if="currentTab === 'dashboard'" class="p-4">
+                <!-- 總覽卡片 -->
+                <div class="card-shadow rounded-2xl bg-white p-5 mb-4">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">投資總覽</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="gradient-green p-4 rounded-xl text-white">
+                            <p class="text-sm opacity-90">總投入成本</p>
+                            <p class="text-2xl font-bold mt-1">NT$ {{ formatNumber(totalCost) }}</p>
+                        </div>
+                        <div class="gradient-blue p-4 rounded-xl text-white">
+                            <p class="text-sm opacity-90">當前市值</p>
+                            <p class="text-2xl font-bold mt-1">NT$ {{ formatNumber(totalMarketValue) }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">未實現損益</span>
+                            <span :class="[
+								'font-bold',
+								totalUnrealizedProfit >= 0 ? 'text-red-600' : 'text-green-600'
+							]">
+                                {{ totalUnrealizedProfit >= 0 ? '+' : '' }}{{ formatNumber(totalUnrealizedProfit) }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">累計股息收入</span>
+                            <span class="font-bold text-blue-600">NT$ {{ formatNumber(totalDividends) }}</span>
+                        </div>
+                    </div>
+					<div class="flex justify-between mt-2 pt-3 border-t border-gray-100">
+						<span class="text-gray-600">含息總報酬</span>
+						<span :class="[
+							'font-bold',
+							totalAdjustedReturn >= 0 ? 'text-red-600' : 'text-green-600'
+						]">
+							{{ totalAdjustedReturn >= 0 ? '+' : '' }}{{ formatNumber(totalAdjustedReturn) }}
+						</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-gray-600">含息報酬率</span>
+						<span :class="[
+							'font-bold',
+							totalAdjustedReturnRate >= 0 ? 'text-red-600' : 'text-green-600'
+						]">
+							{{ totalAdjustedReturnRate >= 0 ? '+' : '' }}{{ totalAdjustedReturnRate.toFixed(2) }}%
+						</span>
+					</div>
+                </div>
+                
+                <!-- 持股列表 -->
+                <div class="card-shadow rounded-2xl bg-white p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold text-gray-700">持股明細</h2>
+                    </div>
+                    
+                    <div v-if="holdings.length > 0">
+                        <div 
+							v-for="holding in holdings" 
+							:key="holding.id"
+							class="border border-gray-100 rounded-xl p-4 mb-3 hover:bg-gray-50 transition-colors"
+							@click="viewStockDetail(holding)"
+						>
+							<div class="flex justify-between items-center mb-2">
+								<div>
+									<h3 class="font-bold text-gray-800">{{ holding.stockCode }} - {{ holding.stockName }}</h3>
+									<p class="text-sm text-gray-500">{{ holding.shares }} 股</p>
+								</div>
+								<div class="text-right">
+									<p class="font-bold text-gray-800" :class="getPriceChangeClass(holding)">
+										NT$ {{ formatNumber(holding.currentPrice) }}
+										<span v-if="holding.prevPrice" class="text-xs ml-1">
+											({{ holding.currentPrice > holding.prevPrice ? '↗' : '↘' }})
+										</span>
+									</p>
+									<p class="text-sm" :class="holding.profit >= 0 ? 'text-red-600' : 'text-green-600'">
+										{{ holding.profit >= 0 ? '+' : '' }}{{ formatNumber(holding.profit) }}
+									</p>
+								</div>
+							</div>
+							<div class="flex text-sm text-gray-600 justify-between">
+								<span>成本: NT$ {{ formatNumber(holding.avgCost) }}</span>
+								<span>市值: NT$ {{ formatNumber(holding.marketValue) }}</span>
+							</div>
+						</div>
+                    </div>
+                    
+                    <div v-else class="text-center py-8">
+                        <i class="fas fa-chart-line text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500">尚未添加任何持股</p>
+                        <button 
+                            @click="currentTab = 'transaction'"
+                            class="mt-3 bg-blue-500 text-white py-2 px-4 rounded-lg"
+                        >
+                            新增交易記錄
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 交易記錄頁面 -->
+            <div v-if="currentTab === 'transaction'" class="p-4">
+                <div class="card-shadow rounded-2xl bg-white p-5 mb-4">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">新增交易記錄</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">交易類型</label>
+                        <div class="flex space-x-2">
+                            <button 
+                                @click="newTransaction.type = 'buy'"
+                                :class="[
+                                    'flex-1 py-2 rounded-lg font-medium',
+                                    newTransaction.type === 'buy' 
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-gray-100 text-gray-700'
+                                ]"
+                            >
+                                買入
+                            </button>
+                            <button 
+                                @click="newTransaction.type = 'sell'"
+                                :class="[
+                                    'flex-1 py-2 rounded-lg font-medium',
+                                    newTransaction.type === 'sell' 
+                                        ? 'bg-green-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700'
+                                ]"
+                            >
+                                賣出
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">股票代號/名稱</label>
+                        <input 
+                            v-model="newTransaction.stockCode" 
+                            type="text" 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                            placeholder="例如: 2330 台積電"
+                        >
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">交易日期</label>
+                        <input 
+                            v-model="newTransaction.date" 
+                            type="date" 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        >
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">股數</label>
+                            <input 
+                                v-model="newTransaction.shares" 
+                                type="number" 
+                                min="1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="例如: 100"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">單價</label>
+                            <input 
+                                v-model="newTransaction.price" 
+                                type="number" 
+                                min="0" 
+                                step="0.01"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="例如: 150.5"
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">手續費/稅</label>
+                        <input 
+                            v-model="newTransaction.fee" 
+                            type="number" 
+                            min="0" 
+                            step="0.01"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                            placeholder="例如: 20"
+                        >
+                    </div>
+                    
+                    <button 
+                        @click="addTransaction" 
+                        :class="[
+                            'w-full py-3 rounded-lg font-bold text-white transition',
+                            newTransaction.type === 'buy' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                        ]"
+                    >
+                        確認新增{{ newTransaction.type === 'buy' ? '買入' : '賣出' }}記錄
+                    </button>
+                </div>
+                
+                <!-- 近期交易記錄 -->
+                <div class="card-shadow rounded-2xl bg-white p-5">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">近期交易記錄</h2>
+                    
+                    <div v-if="transactions.length > 0">
+                        <div 
+                            v-for="transaction in sortedTransactions.slice(0, 5)" 
+                            :key="transaction.id"
+                            class="border border-gray-100 rounded-xl p-4 mb-3"
+                        >
+                            <div class="flex justify-between items-center mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">{{ transaction.stockCode }}</h3>
+                                    <p class="text-sm text-gray-500">{{ formatDate(transaction.date) }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p :class="[
+                                        'font-bold',
+                                        transaction.type === 'buy' ? 'text-green-600' : 'text-red-600'
+                                    ]">
+                                        {{ transaction.type === 'buy' ? '買入' : '賣出' }}
+                                    </p>
+                                    <p class="text-sm text-gray-600">{{ transaction.shares }} 股</p>
+                                </div>
+                            </div>
+                            <div class="flex text-sm text-gray-600 justify-between">
+                                <span>單價: NT$ {{ formatNumber(transaction.price) }}</span>
+                                <span>總額: NT$ {{ formatNumber(transaction.shares * transaction.price) }}</span>
+                            </div>
+							 <!-- 刪除按鈕 -->
+							<div class="text-right mt-2">
+								<button 
+									@click.stop="deleteTransaction(transaction.id)"
+									class="text-red-500 hover:text-red-700 text-sm"
+								>
+									<i class="fas fa-trash-alt mr-1"></i>刪除
+								</button>
+							</div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button 
+                                @click="viewAllTransactions = true"
+                                class="text-blue-500 font-medium"
+                            >
+                                查看所有記錄 ({{ transactions.length }})
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div v-else class="text-center py-8 text-gray-500">
+                        <i class="fas fa-exchange-alt text-4xl text-gray-300 mb-3"></i>
+                        <p>尚未添加任何交易記錄</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 除權息頁面 -->
+            <div v-if="currentTab === 'dividend'" class="p-4">
+                <div class="card-shadow rounded-2xl bg-white p-5 mb-4">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">新增除權息事件</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">股票代號/名稱</label>
+                        <select 
+                            v-model="newDividend.stockId"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        >
+                            <option value="" disabled selected>選擇股票</option>
+                            <option v-for="holding in holdings" :value="holding.id">{{ holding.stockCode }} - {{ holding.stockName }}</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">除權息日期</label>
+                        <input 
+                            v-model="newDividend.date" 
+                            type="date" 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        >
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">現金股利 (每股)</label>
+                            <input 
+                                v-model="newDividend.cashDividend" 
+                                type="number" 
+                                min="0" 
+                                step="0.01"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="例如: 2.5"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">股票股利 (每千股)</label>
+                            <input 
+                                v-model="newDividend.stockDividend" 
+                                type="number" 
+                                min="0" 
+                                step="1"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="例如: 50"
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">備註</label>
+                        <input 
+                            v-model="newDividend.note" 
+                            type="text" 
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                            placeholder="例如: 2023年配息"
+                        >
+                    </div>
+                    
+                    <button 
+                        @click="addDividend" 
+                        class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold transition"
+                    >
+                        確認新增除權息記錄
+                    </button>
+                </div>
+                
+                <!-- 除權息記錄 -->
+                <div class="card-shadow rounded-2xl bg-white p-5">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">除權息記錄</h2>
+                    
+                    <div v-if="dividends.length > 0">
+                        <div 
+                            v-for="dividend in sortedDividends.slice(0, 5)" 
+                            :key="dividend.id"
+                            class="border border-gray-100 rounded-xl p-4 mb-3"
+                        >
+                            <div class="flex justify-between items-center mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">{{ getStockName(dividend.stockId) }}</h3>
+                                    <p class="text-sm text-gray-500">{{ formatDate(dividend.date) }}</p>
+                                </div>
+                                <div class="text-right">
+									<p v-if="dividend.cashDividend > 0" class="text-red-600 font-bold">
+										NT$ {{ formatNumber(dividend.cashDividend) }}
+									</p>
+									<p v-if="dividend.stockDividend > 0" class="text-blue-600 font-bold">
+										{{ dividend.stockDividend }} 股/千股
+									</p>
+								</div>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <p v-if="dividend.note">{{ dividend.note }}</p>
+                                <p class="mt-1">影響成本: NT$ {{ formatNumber(dividend.costImpact) }}</p>
+                            </div>
+							<!-- 刪除按鈕 -->
+							<div class="text-right mt-2">
+								<button 
+									@click.stop="deleteDividend(dividend.id)"
+									class="text-red-500 hover:text-red-700 text-sm"
+								>
+									<i class="fas fa-trash-alt mr-1"></i>刪除
+								</button>
+							</div>
+                        </div>
+						
+                        
+                        <div class="text-center mt-4">
+                            <button 
+                                @click="viewAllDividends = true"
+                                class="text-blue-500 font-medium"
+                            >
+                                查看所有記錄 ({{ dividends.length }})
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div v-else class="text-center py-8 text-gray-500">
+                        <i class="fas fa-gift text-4xl text-gray-300 mb-3"></i>
+                        <p>尚未添加除權息記錄</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分析頁面 -->
+            <div v-if="currentTab === 'analysis'" class="p-4">
+                <div class="card-shadow rounded-2xl bg-white p-5 mb-4">
+                    <h2 class="text-lg font-bold text-gray-700 mb-4">績效分析</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="gradient-orange p-4 rounded-xl text-white">
+                            <p class="text-sm opacity-90">總報酬率</p>
+                            <p class="text-2xl font-bold mt-1">{{ totalReturnRate.toFixed(2) }}%</p>
+                        </div>
+                        <div class="gradient-green p-4 rounded-xl text-white">
+                            <p class="text-sm opacity-90">年化報酬</p>
+                            <p class="text-2xl font-bold mt-1">{{ annualizedReturn.toFixed(2) }}%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-bold text-gray-700 mb-3">股息收入趨勢</h3>
+                        <div class="bg-gray-100 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+								<span class="text-gray-600">本月股息</span>
+								<span class="font-bold text-red-600">NT$ {{ formatNumber(monthlyDividends) }}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="text-gray-600">今年股息</span>
+								<span class="font-bold text-red-600">NT$ {{ formatNumber(yearlyDividends) }}</span>
+							</div>
+                        </div>
+                    </div>
+					
+					<!-- 在分析頁面的績效分析部分添加 -->
+					<div class="mt-6 pt-6 border-t border-gray-200">
+						<h3 class="font-bold text-gray-700 mb-3">含息報酬分析</h3>
+						
+						<div class="grid grid-cols-2 gap-4 mb-4">
+							<div class="gradient-purple p-4 rounded-xl text-white">
+								<p class="text-sm opacity-90">原始報酬率</p>
+								<p class="text-2xl font-bold mt-1">{{ totalReturnRate.toFixed(2) }}%</p>
+							</div>
+							<div class="gradient-green p-4 rounded-xl text-white">
+								<p class="text-sm opacity-90">含息報酬率</p>
+								<p class="text-2xl font-bold mt-1">{{ totalAdjustedReturnRate.toFixed(2) }}%</p>
+							</div>
+						</div>
+						
+						<div class="bg-gray-100 rounded-lg p-4">
+							<div class="flex justify-between items-center mb-2">
+								<span class="text-gray-600">股息回收金額</span>
+								<span class="font-bold text-red-600">NT$ {{ formatNumber(totalDividends) }}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="text-gray-600">成本回收比例</span>
+								<span class="font-bold text-blue-600">{{ totalCost > 0 ? ((totalDividends / totalCost) * 100).toFixed(1) : 0 }}%</span>
+							</div>
+						</div>
+					</div>
+                    
+                    <div>
+                        <h3 class="font-bold text-gray-700 mb-3">資產分配</h3>
+                        <div class="space-y-3">
+                            <div v-for="holding in holdings" :key="holding.id" class="flex items-center">
+                                <div class="w-3 h-3 rounded-full mr-2" :style="{backgroundColor: getRandomColor(holding.stockCode)}"></div>
+                                <span class="flex-1 text-gray-700">{{ holding.stockCode }}</span>
+                                <span class="text-gray-600">{{ ((holding.marketValue / totalMarketValue) * 100).toFixed(1) }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 提醒事項 -->
+				<div class="card-shadow rounded-2xl bg-white p-5">
+				<h2 class="text-lg font-bold text-gray-700 mb-4">提醒事項</h2>
+				
+				<div class="space-y-3">
+					<!-- 近期除權息提醒 - 簡潔風格 -->
+					<div v-if="upcomingDividends.length > 0" class="bg-blue-50 border border-blue-100 rounded-lg p-3">
+						<div class="flex items-center">
+							<i class="fas fa-bell text-blue-500 mr-3"></i>
+							<div>
+								<p class="font-medium text-blue-800">近期除權息</p>
+								<p class="text-sm text-blue-600">{{ upcomingDividendsMessage }}</p>
+							</div>
+						</div>
+					</div>
+					
+					<!-- 股價低於成本提醒 -->
+					<div v-if="lowPriceStocks.length > 0" class="bg-green-50 border border-green-100 rounded-lg p-3">
+						<div class="flex items-center">
+							<i class="fas fa-chart-line text-green-500 mr-3"></i>
+							<div>
+								<p class="font-medium text-green-800">股價低於成本</p>
+								<p class="text-sm text-green-600">{{ lowPriceStocks.length }} 檔股票目前股價低於成本價</p>
+							</div>
+						</div>
+					</div>
+					
+					<!-- 定期定額提醒 -->
+					<div class="bg-gray-50 border border-gray-100 rounded-lg p-3">
+						<div class="flex items-center">
+							<i class="fas fa-calendar-alt text-gray-500 mr-3"></i>
+							<div>
+								<p class="font-medium text-gray-800">定期定額提醒</p>
+								<p class="text-sm text-gray-600">每月15日為建議定期買入日</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+            </div>
+        </main>
+
+        <!-- 底部導航 -->
+        <nav class="bottom-nav bg-white fixed bottom-0 left-0 right-0 py-3 px-6 flex">
+			<button 
+				v-for="(tab, index) in tabs" 
+				:key="index"
+				@click="currentTab = tab.id"
+				:class="[
+					'flex flex-col items-center p-2 rounded-lg transition-colors flex-1',  <!-- 添加 flex-1 -->
+					currentTab === tab.id ? 'text-blue-500' : 'text-gray-500'
+				]"
+			>
+				<i :class="['text-xl', tab.icon]"></i>
+				<span class="text-xs mt-1">{{ tab.name }}</span>
+			</button>
+		</nav>
+
+        <!-- 數據導入/導出彈窗 -->
+        <div v-if="showImportExport" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+                <div class="gradient-purple p-5 text-white">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold">數據管理</h3>
+                        <button @click="showImportExport = false" class="text-white/80 hover:text-white">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-y-auto custom-scrollbar p-5" style="max-height: 70vh;">
+                    <div class="mb-6">
+                        <h4 class="font-bold text-gray-700 mb-3">導出數據</h4>
+                        <p class="text-gray-600 text-sm mb-3">將您目前的持股、交易和除權息數據導出為JSON檔案，方便備份或遷移到其他裝置。</p>
+                        
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-medium text-gray-700">數據統計</span>
+                                <span class="text-sm text-gray-500">{{ formatDateForExport(new Date()) }}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                <div class="text-center p-2 bg-white rounded">
+                                    <p class="font-bold text-gray-800">{{ holdings.length }}</p>
+                                    <p class="text-gray-600">持股</p>
+                                </div>
+                                <div class="text-center p-2 bg-white rounded">
+                                    <p class="font-bold text-gray-800">{{ transactions.length }}</p>
+                                    <p class="text-gray-600">交易</p>
+                                </div>
+                                <div class="text-center p-2 bg-white rounded">
+                                    <p class="font-bold text-gray-800">{{ dividends.length }}</p>
+                                    <p class="text-gray-600">除權息</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            @click="exportData"
+                            class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold transition flex items-center justify-center"
+                        >
+                            <i class="fas fa-download mr-2"></i>
+                            導出數據 (JSON)
+                        </button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h4 class="font-bold text-gray-700 mb-3">導入數據</h4>
+                        <p class="text-gray-600 text-sm mb-3">從JSON檔案導入您的持股、交易和除權息數據。請確保JSON格式正確。</p>
+                        
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-medium mb-2">選擇檔案</label>
+                            <input 
+                                type="file" 
+                                @change="handleFileImport"
+                                accept=".json"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                            >
+                        </div>
+                        
+                        <div class="text-sm text-gray-500 mb-4">
+                            <p class="font-medium mb-1">或直接貼上JSON數據：</p>
+                            <p class="text-xs">請確保JSON格式與導出的檔案一致</p>
+                        </div>
+                        
+                        <textarea 
+                            v-model="importJson"
+                            class="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm font-mono custom-scrollbar"
+                            placeholder="請貼上JSON數據..."
+                        ></textarea>
+                        
+                        <div class="flex space-x-3 mt-4">
+                            <button 
+                                @click="importDataFromJson"
+                                class="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition"
+                            >
+                                導入數據
+                            </button>
+                            <button 
+                                @click="loadSampleData"
+                                class="flex-1 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold transition"
+                            >
+                                載入範例
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h4 class="font-bold text-gray-700 mb-3">重置數據</h4>
+                        <p class="text-gray-600 text-sm mb-3">清除所有數據，恢復到初始狀態。</p>
+                        
+                        <button 
+                            @click="confirmResetData"
+                            class="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition"
+                        >
+                            <i class="fas fa-trash-alt mr-2"></i>
+                            重置所有數據
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-bold text-gray-700 mb-3">數據格式說明</h4>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+                            <p class="font-medium text-gray-700 mb-2">JSON數據應包含以下結構：</p>
+                            <pre class="text-xs bg-gray-100 p-3 rounded overflow-x-auto">{{ jsonFormatExample }}</pre>
+                            <p class="mt-3 text-gray-600">您也可以只導入部分數據（例如只有holdings），系統會自動合併。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 所有交易記錄彈窗 -->
+        <div v-if="viewAllTransactions" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-800">所有交易記錄</h3>
+                        <button @click="viewAllTransactions = false" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-y-auto p-5 custom-scrollbar" style="max-height: 60vh;">
+                    <div v-if="transactions.length > 0">
+                        <div 
+                            v-for="transaction in sortedTransactions" 
+                            :key="transaction.id"
+                            class="border border-gray-100 rounded-xl p-4 mb-3"
+                        >
+                            <div class="flex justify-between items-center mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">{{ transaction.stockCode }}</h3>
+                                    <p class="text-sm text-gray-500">{{ formatDate(transaction.date) }}</p>
+                                </div>
+                                <div class="text-right">
+                                   <p :class="[
+										'font-bold',
+										transaction.type === 'buy' ? 'text-red-600' : 'text-green-600'
+									]">
+                                        {{ transaction.type === 'buy' ? '買入' : '賣出' }}
+                                    </p>
+                                    <p class="text-sm text-gray-600">{{ transaction.shares }} 股</p>
+                                </div>
+                            </div>
+                            <div class="flex text-sm text-gray-600 justify-between">
+                                <span>單價: NT$ {{ formatNumber(transaction.price) }}</span>
+                                <span>總額: NT$ {{ formatNumber(transaction.shares * transaction.price) }}</span>
+                            </div>
+                            <div class="text-sm text-gray-500 mt-2">
+                                手續費: NT$ {{ formatNumber(transaction.fee) }}
+                            </div>
+							<!-- 刪除按鈕 -->
+							<div class="text-right mt-2">
+								<button 
+									@click.stop="deleteTransaction(transaction.id)"
+									class="text-red-500 hover:text-red-700 text-sm"
+								>
+									<i class="fas fa-trash-alt mr-1"></i>刪除
+								</button>
+							</div>
+                        </div>
+                    </div>
+                    
+                    <div v-else class="text-center py-8 text-gray-500">
+                        <p>尚無交易記錄</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 所有除權息記錄彈窗 -->
+        <div v-if="viewAllDividends" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-800">所有除權息記錄</h3>
+                        <button @click="viewAllDividends = false" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-y-auto p-5 custom-scrollbar" style="max-height: 60vh;">
+                    <div v-if="dividends.length > 0">
+                        <div 
+                            v-for="dividend in sortedDividends" 
+                            :key="dividend.id"
+                            class="border border-gray-100 rounded-xl p-4 mb-3"
+                        >
+                            <div class="flex justify-between items-center mb-2">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">{{ getStockName(dividend.stockId) }}</h3>
+                                    <p class="text-sm text-gray-500">{{ formatDate(dividend.date) }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p v-if="dividend.cashDividend > 0" class="text-red-600 font-bold">
+										NT$ {{ formatNumber(dividend.cashDividend) }}
+									</p>
+                                    <p v-if="dividend.stockDividend > 0" class="text-blue-600 font-bold">
+                                        {{ dividend.stockDividend }} 股/千股
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <p v-if="dividend.note">{{ dividend.note }}</p>
+                                <p class="mt-1">影響成本: NT$ {{ formatNumber(dividend.costImpact) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-else class="text-center py-8 text-gray-500">
+                        <p>尚無除權息記錄</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 股票詳情彈窗 -->
+        <div v-if="selectedStock" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+                <div class="gradient-bg p-5 text-white">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-bold">{{ selectedStock.stockCode }} - {{ selectedStock.stockName }}</h3>
+                            <p class="opacity-90">{{ selectedStock.shares }} 股</p>
+                        </div>
+                        <button @click="selectedStock = null" class="text-white/80 hover:text-white">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-y-auto p-5 custom-scrollbar" style="max-height: 60vh;">
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-gray-50 p-4 rounded-xl">
+                            <p class="text-sm text-gray-600">平均成本</p>
+                            <p class="text-xl font-bold text-gray-800">NT$ {{ formatNumber(selectedStock.avgCost) }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-xl">
+							<p class="text-sm text-gray-600">當前股價</p>
+							<div class="flex items-center">
+								<input 
+									v-model="editingPrice" 
+									type="number" 
+									min="0" 
+									step="0.01"
+									class="w-full text-xl font-bold text-gray-800 bg-transparent border-none outline-none"
+								>
+								<button @click="updateStockPrice" class="ml-2 text-blue-500">
+									<i class="fas fa-check"></i>
+								</button>
+							</div>
+							<p v-if="selectedStock.prevPrice" class="text-xs mt-1" :class="editingPrice > selectedStock.prevPrice ? 'text-red-600' : 'text-green-600'">
+								之前: NT$ {{ formatNumber(selectedStock.prevPrice) }}
+							</p>
+						</div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">總成本</span>
+                            <span class="font-bold">NT$ {{ formatNumber(selectedStock.totalCost) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">當前市值</span>
+                            <span class="font-bold" :class="getPriceChangeClass(selectedStock)">
+                                NT$ {{ formatNumber(selectedStock.marketValue) }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">未實現損益</span>
+                            <span :class="[
+								'font-bold',
+								selectedStock.profit >= 0 ? 'text-red-600' : 'text-green-600'
+							]">
+                                {{ selectedStock.profit >= 0 ? '+' : '' }}{{ formatNumber(selectedStock.profit) }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">報酬率</span>
+                            <span :class="[
+								'font-bold',
+								selectedStock.profit >= 0 ? 'text-red-600' : 'text-green-600'
+							]">
+                                {{ selectedStock.profit >= 0 ? '+' : '' }}{{ ((selectedStock.profit / selectedStock.totalCost) * 100).toFixed(2) }}%
+                            </span>
+                        </div>
+                    </div>
+					
+					<!-- 在股票詳情彈窗的現有資訊下方添加 -->
+
+					<div class="mt-6 pt-6 border-t border-gray-200">
+						<h4 class="font-bold text-gray-700 mb-3">成本分析（含股息/配股）</h4>
+						
+						<!-- 含息成本 -->
+						<div class="mb-4 p-3 bg-green-50 rounded-lg">
+							<div class="flex justify-between items-center mb-2">
+								<div>
+									<p class="font-medium text-green-800">含息成本分析</p>
+									<p class="text-sm text-green-600">已考慮現金股息回收</p>
+								</div>
+								<i class="fas fa-coins text-green-500"></i>
+							</div>
+							
+							<div class="space-y-2">
+								<div class="flex justify-between text-sm">
+									<span class="text-gray-600">累計現金股息</span>
+									<span class="font-bold text-red-600">NT$ {{ formatNumber(selectedStock.totalCashDividends || 0) }}</span>
+								</div>
+								<div class="flex justify-between text-sm">
+									<span class="text-gray-600">每股股息</span>
+									<span class="font-bold text-green-600">NT$ {{ formatNumber(selectedStock.cashDividendPerShare || 0) }}</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">含息成本</span>
+									<span class="font-bold">NT$ {{ formatNumber(selectedStock.costWithDividends || selectedStock.avgCost) }}</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">含息損益</span>
+									<span :class="[
+										'font-bold',
+										(selectedStock.profitWithDividends || selectedStock.profit) >= 0 ? 'text-red-600' : 'text-green-600'
+									]">
+										{{ (selectedStock.profitWithDividends >= 0 ? '+' : '') }}{{ formatNumber(selectedStock.profitWithDividends || selectedStock.profit) }}
+									</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">含息報酬率</span>
+									<span :class="[
+										'font-bold',
+										(selectedStock.returnRateWithDividends || selectedStock.returnRate) >= 0 ? 'text-red-600' : 'text-green-600'
+									]">
+										{{ (selectedStock.returnRateWithDividends >= 0 ? '+' : '') }}{{ ((selectedStock.returnRateWithDividends || selectedStock.returnRate) || 0).toFixed(2) }}%
+									</span>
+								</div>
+							</div>
+						</div>
+						
+						<!-- 含配股成本 -->
+						<div v-if="selectedStock && selectedStock.totalStockDividendShares > 0" class="mb-4 p-3 bg-blue-50 rounded-lg">
+							<div class="flex justify-between items-center mb-2">
+								<div>
+									<p class="font-medium text-blue-800">含配股成本分析</p>
+									<p class="text-sm text-blue-600">已考慮股票股利</p>
+								</div>
+								<i class="fas fa-chart-line text-blue-500"></i>
+							</div>
+							
+							<div class="space-y-2">
+								<div class="flex justify-between text-sm">
+									<span class="text-gray-600">配發股數</span>
+									<span class="font-bold text-blue-600">
+										{{ Math.round(selectedStock.totalStockDividendShares) }} 股
+										<span v-if="selectedStock.shares" class="text-xs">
+											(約 {{ ((selectedStock.totalStockDividendShares / selectedStock.shares) * 100).toFixed(1) }}%)
+										</span>
+									</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">含配股成本</span>
+									<span class="font-bold">
+										NT$ {{ formatNumber(selectedStock.costWithStockDividends || selectedStock.avgCost) }}
+									</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">調整後總股數</span>
+									<span class="font-bold">
+										{{ Math.round(selectedStock.shares + selectedStock.totalStockDividendShares) }} 股
+									</span>
+								</div>
+							</div>
+						</div>
+						
+						<!-- 總調整成本 -->
+						<div class="p-3 bg-purple-50 rounded-lg">
+							<div class="flex justify-between items-center mb-2">
+								<div>
+									<p class="font-medium text-purple-800">總調整成本</p>
+									<p class="text-sm text-purple-600">同時考慮股息與配股</p>
+								</div>
+								<i class="fas fa-calculator text-purple-500"></i>
+							</div>
+							
+							<div class="space-y-2">
+								<div class="flex justify-between">
+									<span class="text-gray-600">調整後成本</span>
+									<span class="font-bold">NT$ {{ formatNumber(selectedStock.adjustedCost || selectedStock.avgCost) }}</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">調整後損益</span>
+									<span :class="[
+										'font-bold',
+										(selectedStock.profitAdjusted || selectedStock.profit) >= 0 ? 'text-green-600' : 'text-red-600'
+									]">
+										{{ (selectedStock.profitAdjusted >= 0 ? '+' : '') }}{{ formatNumber(selectedStock.profitAdjusted || selectedStock.profit) }}
+									</span>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-gray-600">調整後報酬率</span>
+									<span :class="[
+										'font-bold',
+										(selectedStock.returnRateAdjusted || selectedStock.returnRate) >= 0 ? 'text-red-600' : 'text-green-600'
+									]">
+										{{ (selectedStock.returnRateAdjusted >= 0 ? '+' : '') }}{{ ((selectedStock.returnRateAdjusted || selectedStock.returnRate) || 0).toFixed(2) }}%
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+                    
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <h4 class="font-bold text-gray-700 mb-3">相關交易記錄</h4>
+                        <div v-if="getStockTransactions(selectedStock.id).length > 0">
+                            <div 
+                                v-for="transaction in getStockTransactions(selectedStock.id)" 
+                                :key="transaction.id"
+                                class="border border-gray-100 rounded-lg p-3 mb-2"
+                            >
+                                <div class="flex justify-between">
+                                    <span class="text-gray-700">{{ formatDate(transaction.date) }}</span>
+                                    <span :class="[
+                                        'font-bold',
+                                        transaction.type === 'buy' ? 'text-green-600' : 'text-red-600'
+                                    ]">
+                                        {{ transaction.type === 'buy' ? '買入' : '賣出' }} {{ transaction.shares }} 股
+                                    </span>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    單價: NT$ {{ formatNumber(transaction.price) }}
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="text-gray-500 text-center py-4">
+                            尚無交易記錄
+                        </div>
+                    </div>
+					<!-- 在相關交易記錄下方添加刪除持股按鈕 -->
+					<div class="mt-6 pt-6 border-t border-gray-200">
+						<h4 class="font-bold text-red-700 mb-3">危險操作區</h4>
+						<div class="bg-red-50 border border-red-100 rounded-lg p-4">
+							<p class="text-sm text-red-600 mb-3">刪除整個持股將會移除該股票的所有相關記錄，包括交易和除權息記錄。這個動作無法還原。</p>
+							<button 
+								@click="deleteHolding(selectedStock.id)"
+								class="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition flex items-center justify-center"
+							>
+								<i class="fas fa-trash-alt mr-2"></i>
+								刪除整個持股
+							</button>
+						</div>
+					</div>
+                </div>
+            </div>
+			
+		</div>
+        
+        <!-- 重置確認彈窗 -->
+        <div v-if="showResetConfirm" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-xl mr-3"></i>
+                        <h3 class="text-lg font-bold text-gray-800">確認重置數據</h3>
+                    </div>
+                </div>
+                
+                <div class="p-5">
+                    <p class="text-gray-700 mb-4">您確定要重置所有數據嗎？這個動作無法還原，所有持股、交易和除權息記錄都會被清除。</p>
+                    
+                    <div class="flex space-x-3">
+                        <button 
+                            @click="resetData"
+                            class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition"
+                        >
+                            確定重置
+                        </button>
+                        <button 
+                            @click="showResetConfirm = false"
+                            class="flex-1 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-bold transition"
+                        >
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        
+        createApp({
+            setup() {
+                // 頁面狀態
+                const currentTab = ref('dashboard');
+                const isDarkMode = ref(false);
+                const viewAllTransactions = ref(false);
+                const viewAllDividends = ref(false);
+                const selectedStock = ref(null);
+                const showImportExport = ref(false);
+                const showResetConfirm = ref(false);
+                const importJson = ref('');
+                const isRefreshing = ref(false);
+				
+				const editingPrice = ref('');
+                
+                // 頁面標籤
+                const tabs = [
+                    { id: 'dashboard', name: '總覽', icon: 'fas fa-home' },
+                    { id: 'transaction', name: '交易', icon: 'fas fa-exchange-alt' },
+                    { id: 'dividend', name: '除權息', icon: 'fas fa-gift' },
+                    { id: 'analysis', name: '分析', icon: 'fas fa-chart-pie' }
+                ];
+                
+                // JSON格式範例
+                const jsonFormatExample = JSON.stringify({
+                    holdings: [
+                        { id: 1, stockCode: "2330", stockName: "台積電", shares: 50, avgCost: 285.5, currentPrice: 320 }
+                    ],
+                    transactions: [
+                        { id: 1, stockId: 1, type: "buy", date: "2023-05-15", shares: 20, price: 280, fee: 20 }
+                    ],
+                    dividends: [
+                        { id: 1, stockId: 1, date: "2023-07-20", cashDividend: 3.0, stockDividend: 0, note: "2023年配息", costImpact: -3.0 }
+                    ]
+                }, null, 2);
+                
+                // 從localStorage載入數據，如果沒有則使用預設數據
+                const loadDataFromStorage = () => {
+                    const savedHoldings = localStorage.getItem('stockHoldings');
+                    const savedTransactions = localStorage.getItem('stockTransactions');
+                    const savedDividends = localStorage.getItem('stockDividends');
+                    
+                    if (savedHoldings && savedTransactions && savedDividends) {
+                        try {
+                            holdings.value = JSON.parse(savedHoldings);
+                            transactions.value = JSON.parse(savedTransactions);
+                            dividends.value = JSON.parse(savedDividends);
+                            console.log('從本地儲存載入數據成功');
+                        } catch (e) {
+                            console.error('載入本地數據失敗，使用預設數據', e);
+                            loadDefaultData();
+                        }
+                    } else {
+                        loadDefaultData();
+                    }
+                    
+                    // 確保每個持股都有計算後的欄位
+                    updateHoldingsData();
+                };
+				
+				// 計算含息總報酬
+				const totalAdjustedReturn = computed(() => {
+					return holdings.value.reduce((sum, holding) => {
+						return sum + (holding.profitAdjusted || holding.profit);
+					}, 0);
+				});
+
+				// 計算含息總報酬率
+				const totalAdjustedReturnRate = computed(() => {
+					if (totalCost.value === 0) return 0;
+					return (totalAdjustedReturn.value / totalCost.value * 100);
+				});
+
+				// 計算含息總市值（考慮配股）
+				const totalAdjustedMarketValue = computed(() => {
+					return holdings.value.reduce((sum, holding) => {
+						const adjustedShares = holding.shares + (holding.totalStockDividendShares || 0);
+						return sum + (holding.currentPrice * adjustedShares);
+					}, 0);
+				});
+                
+                // 載入預設數據
+                const loadDefaultData = () => {
+                    holdings.value = [];
+                    
+                    transactions.value = [];
+                    
+                    dividends.value = [];
+                };
+                
+                // 載入範例數據
+                const loadSampleData = () => {
+                    const sampleData = {
+                        holdings: [
+                            { 
+                                id: 1, 
+                                stockCode: '2330', 
+                                stockName: '台積電', 
+                                shares: 100, 
+                                avgCost: 300.5, 
+                                currentPrice: 320,
+                                transactions: [1, 2]
+                            },
+                            { 
+                                id: 2, 
+                                stockCode: '2884', 
+                                stockName: '玉山金', 
+                                shares: 200, 
+                                avgCost: 24.3, 
+                                currentPrice: 25.5,
+                                transactions: [3]
+                            }
+                        ],
+                        transactions: [
+                            { id: 1, stockId: 1, type: 'buy', date: '2023-03-10', shares: 50, price: 295, fee: 15 },
+                            { id: 2, stockId: 1, type: 'buy', date: '2023-06-15', shares: 50, price: 306, fee: 16 },
+                            { id: 3, stockId: 2, type: 'buy', date: '2023-04-20', shares: 200, price: 24.3, fee: 10 }
+                        ],
+                        dividends: [
+                            { id: 1, stockId: 1, date: '2023-07-20', cashDividend: 3.0, stockDividend: 0, note: '2023年配息', costImpact: -3.0 },
+                            { id: 2, stockId: 2, date: '2023-08-15', cashDividend: 0.8, stockDividend: 50, note: '2023年配息配股', costImpact: -0.8 }
+                        ]
+                    };
+                    
+                    importJson.value = JSON.stringify(sampleData, null, 2);
+                };
+                
+                // 持股數據
+                const holdings = ref([]);
+                
+                // 交易記錄
+                const transactions = ref([]);
+                
+                // 除權息記錄
+                const dividends = ref([]);
+                
+                // 新增交易表單
+                const newTransaction = ref({
+                    type: 'buy',
+                    stockCode: '',
+                    date: new Date().toISOString().split('T')[0],
+                    shares: '',
+                    price: '',
+                    fee: 0
+                });
+                
+                // 新增除權息表單
+                const newDividend = ref({
+                    stockId: '',
+                    date: new Date().toISOString().split('T')[0],
+                    cashDividend: '',
+                    stockDividend: '',
+                    note: ''
+                });
+                
+                // 計算總成本
+                const totalCost = computed(() => {
+                    return holdings.value.reduce((sum, holding) => {
+                        return sum + (holding.avgCost * holding.shares);
+                    }, 0);
+                });
+                
+                // 計算總市值
+                const totalMarketValue = computed(() => {
+                    return holdings.value.reduce((sum, holding) => {
+                        return sum + (holding.currentPrice * holding.shares);
+                    }, 0);
+                });
+                
+                // 計算未實現損益
+                const totalUnrealizedProfit = computed(() => {
+                    return holdings.value.reduce((sum, holding) => {
+                        return sum + ((holding.currentPrice - holding.avgCost) * holding.shares);
+                    }, 0);
+                });
+                
+                // 計算累計股息收入
+                const totalDividends = computed(() => {
+                    return dividends.value.reduce((sum, dividend) => {
+                        const holding = holdings.value.find(h => h.id === dividend.stockId);
+                        if (holding) {
+                            // 計算該持股在除權息時的股數（簡化計算，實際應根據交易時間計算）
+                            return sum + (dividend.cashDividend * holding.shares);
+                        }
+                        return sum;
+                    }, 0);
+                });
+                
+                // 計算總報酬率
+                const totalReturnRate = computed(() => {
+                    if (totalCost.value === 0) return 0;
+                    return ((totalUnrealizedProfit.value + totalDividends.value) / totalCost.value * 100);
+                });
+                
+                // 計算年化報酬率（簡化計算）
+                const annualizedReturn = computed(() => {
+                    return totalReturnRate.value / 3; // 假設投資3年
+                });
+                
+                // 計算本月股息收入
+                const monthlyDividends = computed(() => {
+                    const currentMonth = new Date().getMonth() + 1;
+                    const currentYear = new Date().getFullYear();
+                    
+                    return dividends.value.reduce((sum, dividend) => {
+                        const dividendDate = new Date(dividend.date);
+                        if (dividendDate.getMonth() + 1 === currentMonth && dividendDate.getFullYear() === currentYear) {
+                            const holding = holdings.value.find(h => h.id === dividend.stockId);
+                            if (holding) {
+                                return sum + (dividend.cashDividend * holding.shares);
+                            }
+                        }
+                        return sum;
+                    }, 0);
+                });
+				
+				// 刪除交易記錄
+				const deleteTransaction = (transactionId) => {
+					if (!confirm('確定要刪除這筆交易記錄嗎？這個動作無法復原。')) {
+						return;
+					}
+					
+					const transactionIndex = transactions.value.findIndex(t => t.id === transactionId);
+					if (transactionIndex === -1) {
+						alert('找不到要刪除的交易記錄');
+						return;
+					}
+					
+					const transaction = transactions.value[transactionIndex];
+					const holdingIndex = holdings.value.findIndex(h => h.id === transaction.stockId);
+					
+					if (holdingIndex !== -1) {
+						// 如果刪除買入交易，需要重新計算持股成本
+						if (transaction.type === 'buy') {
+							// 移除交易記錄
+							transactions.value.splice(transactionIndex, 1);
+							
+							// 重新計算該股票的所有交易，以更新持股
+							recalculateHoldingFromTransactions(transaction.stockId);
+						} else {
+							// 賣出交易直接刪除
+							transactions.value.splice(transactionIndex, 1);
+						}
+					} else {
+						// 如果找不到對應持股，直接刪除交易記錄
+						transactions.value.splice(transactionIndex, 1);
+					}
+					
+					// 更新持股數據
+					updateHoldingsData();
+					
+					// 保存到本地儲存
+					saveDataToStorage();
+					
+					alert('交易記錄已刪除');
+				};
+
+				// 根據交易記錄重新計算持股
+				const recalculateHoldingFromTransactions = (stockId) => {
+					const stockTransactions = transactions.value.filter(t => t.stockId === stockId);
+					
+					if (stockTransactions.length === 0) {
+						// 如果沒有交易記錄了，刪除該持股
+						holdings.value = holdings.value.filter(h => h.id !== stockId);
+						return;
+					}
+					
+					// 計算總股數和總成本
+					let totalShares = 0;
+					let totalCost = 0;
+					let buyCount = 0;
+					
+					stockTransactions.forEach(trans => {
+						if (trans.type === 'buy') {
+							totalShares += trans.shares;
+							totalCost += (trans.price * trans.shares) + trans.fee;
+							buyCount++;
+						} else if (trans.type === 'sell') {
+							totalShares -= trans.shares;
+						}
+					});
+					
+					// 更新持股
+					const holdingIndex = holdings.value.findIndex(h => h.id === stockId);
+					if (holdingIndex !== -1) {
+						holdings.value[holdingIndex].shares = totalShares;
+						holdings.value[holdingIndex].avgCost = buyCount > 0 ? totalCost / totalShares : 0;
+						
+						// 如果股數為0，刪除該持股
+						if (totalShares <= 0) {
+							holdings.value.splice(holdingIndex, 1);
+						}
+					}
+				};
+
+				// 刪除除權息記錄
+				const deleteDividend = (dividendId) => {
+					if (!confirm('確定要刪除這筆除權息記錄嗎？這個動作無法復原。')) {
+						return;
+					}
+					
+					const dividendIndex = dividends.value.findIndex(d => d.id === dividendId);
+					if (dividendIndex === -1) {
+						alert('找不到要刪除的除權息記錄');
+						return;
+					}
+					
+					// 移除記錄
+					dividends.value.splice(dividendIndex, 1);
+					
+					// 重新編號（可選，為了保持ID連續）
+					// dividends.value.forEach((dividend, index) => {
+					//     dividend.id = index + 1;
+					// });
+					
+					// 更新持股數據
+					updateHoldingsData();
+					
+					// 保存到本地儲存
+					saveDataToStorage();
+					
+					alert('除權息記錄已刪除');
+				};
+
+				// 刪除整個持股（及相關交易和除權息記錄）
+				const deleteHolding = (stockId) => {
+					if (!confirm('確定要刪除這個持股嗎？這將會刪除所有相關的交易和除權息記錄，這個動作無法復原。')) {
+						return;
+					}
+					
+					// 刪除持股
+					const holdingIndex = holdings.value.findIndex(h => h.id === stockId);
+					if (holdingIndex !== -1) {
+						holdings.value.splice(holdingIndex, 1);
+					}
+					
+					// 刪除相關交易記錄
+					transactions.value = transactions.value.filter(t => t.stockId !== stockId);
+					
+					// 刪除相關除權息記錄
+					dividends.value = dividends.value.filter(d => d.stockId !== stockId);
+					
+					// 關閉股票詳情彈窗（如果打開的話）
+					if (selectedStock.value && selectedStock.value.id === stockId) {
+						selectedStock.value = null;
+					}
+					
+					// 更新持股數據
+					updateHoldingsData();
+					
+					// 保存到本地儲存
+					saveDataToStorage();
+					
+					alert('持股及相關記錄已刪除');
+				};
+                
+                // 計算今年股息收入
+                const yearlyDividends = computed(() => {
+                    const currentYear = new Date().getFullYear();
+                    
+                    return dividends.value.reduce((sum, dividend) => {
+                        const dividendDate = new Date(dividend.date);
+                        if (dividendDate.getFullYear() === currentYear) {
+                            const holding = holdings.value.find(h => h.id === dividend.stockId);
+                            if (holding) {
+                                return sum + (dividend.cashDividend * holding.shares);
+                            }
+                        }
+                        return sum;
+                    }, 0);
+                });
+				
+				// 新增：生成簡潔的除權息提醒訊息
+				const upcomingDividendsMessage = computed(() => {
+					if (upcomingDividends.value.length === 0) return null;
+					
+					if (upcomingDividends.value.length === 1) {
+						const dividend = upcomingDividends.value[0];
+						return `${dividend.stockCode} 將於 ${formatDate(dividend.date)} 除權息`;
+					} else {
+						// 顯示前 2-3 檔股票，其餘用數字表示
+						const stockList = upcomingDividends.value.slice(0, 3).map(d => d.stockCode).join('、');
+						const remainingCount = upcomingDividends.value.length - 3;
+						
+						if (remainingCount > 0) {
+							return `${stockList} 等 ${upcomingDividends.value.length} 檔股票將於未來30天內除權息`;
+						} else {
+							return `${stockList} 將於未來30天內除權息`;
+						}
+					}
+				});
+								
+                // 取得即將到來的除權息
+                const upcomingDividends = computed(() => {
+					const today = new Date();
+					today.setHours(0, 0, 0, 0); // 設定為當天開始時間
+					
+					const threeDaysLater = new Date(today);
+					threeDaysLater.setDate(threeDaysLater.getDate() + 30); // 未來30天
+					threeDaysLater.setHours(23, 59, 59, 999); // 設定為當天結束時間
+					
+					return dividends.value
+						.filter(dividend => {
+							const dividendDate = new Date(dividend.date);
+							dividendDate.setHours(0, 0, 0, 0); // 忽略時間部分
+							
+							return dividendDate > today && dividendDate <= threeDaysLater;
+						})
+						.map(dividend => {
+							const holding = holdings.value.find(h => h.id === dividend.stockId);
+							return {
+								...dividend,
+								stockCode: holding ? holding.stockCode : '未知股票',
+								stockName: holding ? holding.stockName : '未知',
+								dividendDate: new Date(dividend.date) // 保留日期物件用於排序
+							};
+						})
+						.sort((a, b) => a.dividendDate - b.dividendDate); // 按日期排序
+				});
+                
+                // 取得股價低於成本的股票
+                const lowPriceStocks = computed(() => {
+                    return holdings.value.filter(holding => holding.currentPrice < holding.avgCost);
+                });
+                
+                // 排序交易記錄（按日期倒序）
+                const sortedTransactions = computed(() => {
+                    return [...transactions.value].sort((a, b) => new Date(b.date) - new Date(a.date));
+                });
+                
+                // 排序除權息記錄（按日期倒序）
+                const sortedDividends = computed(() => {
+                    return [...dividends.value].sort((a, b) => new Date(b.date) - new Date(a.date));
+                });
+                
+                // 加強 updateHoldingsData 函數，確保數據正確計算
+				const updateHoldingsData = () => {
+					// 創建新的數組來確保響應式更新
+					const updatedHoldings = holdings.value.map((holding) => {
+						// === 1. 計算基本屬性 ===
+						const marketValue = holding.currentPrice * holding.shares;
+						const totalCost = holding.avgCost * holding.shares;
+						const profit = (holding.currentPrice - holding.avgCost) * holding.shares;
+						const returnRate = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+						
+						// === 2. 計算股息相關屬性 ===
+						const stockDividends = dividends.value.filter(d => d.stockId === holding.id);
+						const totalCashDividends = stockDividends.reduce((sum, d) => {
+							return sum + (d.cashDividend * holding.shares);
+						}, 0);
+						
+						const cashDividendPerShare = stockDividends.reduce((sum, d) => sum + d.cashDividend, 0);
+						
+						const totalStockDividendShares = stockDividends.reduce((sum, d) => {
+							return sum + (d.stockDividend / 1000 * holding.shares);
+						}, 0);
+						
+						// === 3. 計算含息/含配股成本 ===
+						const costWithDividends = Math.max(0, holding.avgCost - cashDividendPerShare);
+						const stockDividendRatio = totalStockDividendShares / holding.shares;
+						const costWithStockDividends = holding.avgCost / (1 + stockDividendRatio);
+						const adjustedCost = Math.max(0, (holding.avgCost - cashDividendPerShare) / (1 + stockDividendRatio));
+						
+						// === 4. 計算含息/含配股損益 ===
+						const profitWithDividends = (holding.currentPrice - costWithDividends) * holding.shares;
+						const profitAdjusted = (holding.currentPrice - adjustedCost) * holding.shares;
+						
+						// === 5. 計算調整後的報酬率 ===
+						const returnRateWithDividends = costWithDividends > 0 ? 
+							(profitWithDividends / (costWithDividends * holding.shares)) * 100 : 100;
+						
+						const returnRateAdjusted = adjustedCost > 0 ? 
+							(profitAdjusted / (adjustedCost * holding.shares)) * 100 : 100;
+						
+						// 返回完整的更新後對象
+						return {
+							...holding,
+							marketValue,
+							totalCost,
+							profit,
+							returnRate,
+							totalCashDividends,
+							cashDividendPerShare,
+							totalStockDividendShares,
+							costWithDividends,
+							costWithStockDividends,
+							adjustedCost,
+							profitWithDividends,
+							profitAdjusted,
+							returnRateWithDividends,
+							returnRateAdjusted
+						};
+					});
+					
+					// 替換整個數組以觸發響應式更新
+					holdings.value = updatedHoldings;
+					
+					// 立即保存到本地儲存，確保數據不會丟失
+					saveDataToStorage();
+					
+					console.log('持股數據已更新並保存');
+				};
+												
+                // 更新所有統計數據
+                const updateAllStats = () => {
+                    // 這個函數會觸發所有computed屬性重新計算
+                    // Vue的響應式系統會自動處理，但我們可以強制觸發一些更新
+                    updateHoldingsData();
+                    
+                    // 手動觸發一些更新
+                    const holdingsCopy = [...holdings.value];
+                    holdings.value = holdingsCopy;
+                };
+                
+                // 保存數據到localStorage
+                const saveDataToStorage = () => {
+                    try {
+                        localStorage.setItem('stockHoldings', JSON.stringify(holdings.value));
+                        localStorage.setItem('stockTransactions', JSON.stringify(transactions.value));
+                        localStorage.setItem('stockDividends', JSON.stringify(dividends.value));
+                        console.log('數據保存成功');
+                    } catch (e) {
+                        console.error('保存數據失敗', e);
+                    }
+                };
+                
+                // 新增交易記錄
+                const addTransaction = () => {
+                    if (!newTransaction.value.stockCode || !newTransaction.value.shares || !newTransaction.value.price) {
+                        alert('請填寫完整資訊');
+                        return;
+                    }
+                    
+                    // 解析股票代號和名稱
+                    const stockCodeMatch = newTransaction.value.stockCode.match(/(\d+)\s*(.+)?/);
+                    if (!stockCodeMatch) {
+                        alert('請輸入有效的股票代號（例如：2330 台積電）');
+                        return;
+                    }
+                    
+                    const stockCode = stockCodeMatch[1];
+                    const stockName = stockCodeMatch[2] || '未知股票';
+                    
+                    // 檢查是否已存在該股票
+                    let existingStock = holdings.value.find(h => h.stockCode === stockCode);
+                    
+                    if (newTransaction.value.type === 'buy') {
+                        // 買入
+                        if (existingStock) {
+                            // 更新現有持股（移動加權平均成本計算）
+                            const newShares = parseInt(newTransaction.value.shares);
+                            const newPrice = parseFloat(newTransaction.value.price);
+                            const fee = parseFloat(newTransaction.value.fee) || 0;
+                            
+                            // 計算新的平均成本
+                            const totalCost = (existingStock.avgCost * existingStock.shares) + (newPrice * newShares) + fee;
+                            const totalShares = existingStock.shares + newShares;
+                            const newAvgCost = totalCost / totalShares;
+                            
+                            existingStock.shares = totalShares;
+                            existingStock.avgCost = newAvgCost;
+                            
+                            // 更新交易記錄
+                            const newTransactionId = transactions.value.length + 1;
+                            transactions.value.push({
+                                id: newTransactionId,
+                                stockId: existingStock.id,
+                                stockCode: stockCode,
+                                type: 'buy',
+                                date: newTransaction.value.date,
+                                shares: newShares,
+                                price: newPrice,
+                                fee: fee
+                            });
+                            
+                            existingStock.transactions.push(newTransactionId);
+                        } else {
+                            // 新增持股
+                            const newStockId = holdings.value.length + 1;
+                            const newShares = parseInt(newTransaction.value.shares);
+                            const newPrice = parseFloat(newTransaction.value.price);
+                            const fee = parseFloat(newTransaction.value.fee) || 0;
+                            
+                            // 計算成本（包含手續費）
+                            const avgCost = (newPrice * newShares + fee) / newShares;
+                            
+                            holdings.value.push({
+                                id: newStockId,
+                                stockCode: stockCode,
+                                stockName: stockName,
+                                shares: newShares,
+                                avgCost: avgCost,
+                                currentPrice: newPrice,
+                                transactions: [transactions.value.length + 1],
+                                prevPrice: newPrice
+                            });
+                            
+                            // 新增交易記錄
+                            transactions.value.push({
+                                id: transactions.value.length + 1,
+                                stockId: newStockId,
+                                stockCode: stockCode,
+                                type: 'buy',
+                                date: newTransaction.value.date,
+                                shares: newShares,
+                                price: newPrice,
+                                fee: fee
+                            });
+                        }
+                    } else {
+                        // 賣出
+                        if (!existingStock) {
+                            alert('您沒有該股票的持股，無法賣出');
+                            return;
+                        }
+                        
+                        const sellShares = parseInt(newTransaction.value.shares);
+                        if (sellShares > existingStock.shares) {
+                            alert('賣出股數超過持有股數');
+                            return;
+                        }
+                        
+                        // 更新持股數量
+                        existingStock.shares -= sellShares;
+                        
+                        // 如果持股為0，移除該持股
+                        if (existingStock.shares === 0) {
+                            holdings.value = holdings.value.filter(h => h.id !== existingStock.id);
+                        }
+                        
+                        // 新增交易記錄
+                        transactions.value.push({
+                            id: transactions.value.length + 1,
+                            stockId: existingStock.id,
+                            stockCode: existingStock.stockCode,
+                            type: 'sell',
+                            date: newTransaction.value.date,
+                            shares: sellShares,
+                            price: parseFloat(newTransaction.value.price),
+                            fee: parseFloat(newTransaction.value.fee) || 0
+                        });
+                    }
+                    
+                    // 重置表單
+                    newTransaction.value = {
+                        type: 'buy',
+                        stockCode: '',
+                        date: new Date().toISOString().split('T')[0],
+                        shares: '',
+                        price: '',
+                        fee: 0
+                    };
+                    
+                    // 更新持股數據
+                    updateHoldingsData();
+                    
+                    // 更新所有統計數據
+                    updateAllStats();
+                    
+                    // 保存到本地儲存
+                    saveDataToStorage();
+                    
+                    alert('交易記錄已新增');
+                };
+                
+                // 新增除權息記錄
+                const addDividend = () => {
+					if (!newDividend.value.stockId || (!newDividend.value.cashDividend && !newDividend.value.stockDividend)) {
+						alert('請填寫完整資訊');
+						return;
+					}
+					
+					const stockId = parseInt(newDividend.value.stockId);
+					const holding = holdings.value.find(h => h.id === stockId);
+					
+					if (!holding) {
+						alert('找不到對應的持股');
+						return;
+					}
+					
+					// 計算成本影響
+					let costImpact = 0;
+					if (newDividend.value.cashDividend) {
+						// 現金股利：降低平均成本
+						costImpact = -parseFloat(newDividend.value.cashDividend);
+					}
+					
+					// 股票股利：增加股數，降低平均成本
+					if (newDividend.value.stockDividend) {
+						const stockDividend = parseInt(newDividend.value.stockDividend);
+						// 每千股配發的股數轉換為每股
+						const dividendPerShare = stockDividend / 1000;
+						// 計算新平均成本
+						const newAvgCost = holding.avgCost / (1 + dividendPerShare);
+						costImpact = newAvgCost - holding.avgCost;
+					}
+					
+					// 新增除權息記錄
+					dividends.value.push({
+						id: dividends.value.length + 1,
+						stockId: stockId,
+						date: newDividend.value.date,
+						cashDividend: parseFloat(newDividend.value.cashDividend) || 0,
+						stockDividend: parseInt(newDividend.value.stockDividend) || 0,
+						note: newDividend.value.note,
+						costImpact: costImpact
+					});
+					
+					// 重置表單
+					newDividend.value = {
+						stockId: '',
+						date: new Date().toISOString().split('T')[0],
+						cashDividend: '',
+						stockDividend: '',
+						note: ''
+					};
+					
+					// === 重要：更新持股數據，重新計算含息/含配股成本 ===
+					updateHoldingsData();
+					
+					// 保存到本地儲存
+					saveDataToStorage();
+					
+					alert('除權息記錄已新增');
+				};
+								
+				const updateStockPrice = () => {
+					const newPrice = parseFloat(editingPrice.value);
+					
+					if (newPrice <= 0 || isNaN(newPrice)) {
+						alert('請輸入有效的股價（必須大於0）');
+						return;
+					}
+					
+					const stockId = selectedStock.value?.id;
+					if (!stockId) {
+						alert('錯誤：無法獲取股票ID');
+						return;
+					}
+					
+					const holdingIndex = holdings.value.findIndex(h => h.id === stockId);
+					if (holdingIndex === -1) {
+						alert('找不到股票資料');
+						return;
+					}
+					
+					const oldPrice = holdings.value[holdingIndex].currentPrice;
+					
+					// 創建新的持股對象
+					const updatedHolding = {
+						...holdings.value[holdingIndex],
+						currentPrice: newPrice,
+						prevPrice: oldPrice
+					};
+					
+					// 替換持股對象
+					holdings.value[holdingIndex] = updatedHolding;
+					
+					// 強制觸發響應式更新
+					holdings.value = [...holdings.value];
+					
+					// 更新並保存所有數據
+					updateHoldingsData();
+					
+					// === 關鍵修復：立即保存到本地儲存 ===
+					saveDataToStorage();
+					
+					// 顯示調試信息
+					console.log('股價更新完成:');
+					console.log(`股票: ${updatedHolding.stockCode}`);
+					console.log(`新價格: ${newPrice}, 舊價格: ${oldPrice}`);
+					console.log(`平均成本: ${updatedHolding.avgCost}`);
+					console.log(`是否低於成本: ${newPrice < updatedHolding.avgCost}`);
+					
+					selectedStock.value = null;
+					
+					alert(`股價更新成功！\n從 NT$${oldPrice} 更新為 NT$${newPrice}`);
+				};
+                
+                // 刷新所有股價（模擬功能）
+                const refreshAllPrices = () => {
+                    isRefreshing.value = true;
+                    
+                    // 模擬網路請求延遲
+                    setTimeout(() => {
+                        holdings.value.forEach(holding => {
+                            // 保存之前的股價
+                            holding.prevPrice = holding.currentPrice;
+                            
+                            // 模擬股價變動（±5%範圍內隨機變動）
+                            const changePercent = (Math.random() - 0.5) * 0.1; // ±5%
+                            const change = holding.currentPrice * changePercent;
+                            holding.currentPrice = parseFloat((holding.currentPrice + change).toFixed(2));
+                        });
+                        
+                        // 更新持股數據
+                        updateHoldingsData();
+                        
+                        // 更新所有統計數據
+                        updateAllStats();
+                        
+                        // 保存到本地儲存
+                        saveDataToStorage();
+                        
+                        isRefreshing.value = false;
+                        
+                        alert('所有股價已更新！');
+                    }, 1000);
+                };
+                
+                // 修正 viewStockDetail 函數
+				const viewStockDetail = (stock) => {
+					// 直接保存股票ID而不是整個對象
+					selectedStock.value = stock;
+					editingPrice.value = stock.currentPrice;
+				};
+                
+                // const updateStockPrice = (stockId) => {
+                const getStockName = (stockId) => {
+                    const holding = holdings.value.find(h => h.id === stockId);
+                    return holding ? `${holding.stockCode} - ${holding.stockName}` : '未知股票';
+                };
+                
+                // 取得價格變化類別
+				const getPriceChangeClass = (holding) => {
+					if (!holding.prevPrice) return 'text-gray-800';
+					
+					if (holding.currentPrice > holding.prevPrice) {
+						return 'price-up'; // 上漲用紅色
+					} else if (holding.currentPrice < holding.prevPrice) {
+						return 'price-down'; // 下跌用綠色
+					} else {
+						return 'text-gray-800';
+					}
+				};
+								
+                // 取得股票相關交易記錄
+                const getStockTransactions = (stockId) => {
+                    return transactions.value.filter(t => t.stockId === stockId);
+                };
+                
+                // 格式化數字（千位分隔）
+                const formatNumber = (num) => {
+                    if (num === undefined || num === null) return '0';
+                    return num.toLocaleString('zh-TW', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2
+                    });
+                };
+                
+                // 格式化日期
+                const formatDate = (dateStr) => {
+                    const date = new Date(dateStr);
+                    return `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}`;
+                };
+                
+                // 格式化導出日期
+                const formatDateForExport = (date) => {
+                    return date.toLocaleDateString('zh-TW', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                };
+                
+                // 產生隨機顏色
+                const getRandomColor = (seed) => {
+                    const colors = [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                        '#06B6D4', '#EC4899', '#84CC16', '#F97316', '#6366F1'
+                    ];
+                    
+                    // 使用股票代號作為種子確保相同股票顏色一致
+                    let hash = 0;
+                    for (let i = 0; i < seed.length; i++) {
+                        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    
+                    return colors[Math.abs(hash) % colors.length];
+                };
+                
+                // 切換主題
+                const toggleTheme = () => {
+                    isDarkMode.value = !isDarkMode.value;
+                    if (isDarkMode.value) {
+                        document.body.classList.add('bg-gray-900', 'text-white');
+                    } else {
+                        document.body.classList.remove('bg-gray-900', 'text-white');
+                    }
+                };
+                
+                // 匯出數據
+                const exportData = () => {
+                    const data = {
+                        holdings: holdings.value,
+                        transactions: transactions.value,
+                        dividends: dividends.value,
+                        exportDate: new Date().toISOString(),
+                        appVersion: '1.0.0'
+                    };
+                    
+                    const dataStr = JSON.stringify(data, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `存股數據_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    alert('數據已匯出');
+                };
+                
+                // 處理檔案導入
+                const handleFileImport = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        importJson.value = e.target.result;
+                    };
+                    reader.readAsText(file);
+                };
+                
+                // 從JSON導入數據
+                const importDataFromJson = () => {
+                    if (!importJson.value.trim()) {
+                        alert('請輸入或貼上JSON數據');
+                        return;
+                    }
+                    
+                    try {
+                        const data = JSON.parse(importJson.value);
+                        
+                        // 驗證數據結構
+                        if (data.holdings && Array.isArray(data.holdings)) {
+                            holdings.value = data.holdings;
+                        }
+                        
+                        if (data.transactions && Array.isArray(data.transactions)) {
+                            transactions.value = data.transactions;
+                        }
+                        
+                        if (data.dividends && Array.isArray(data.dividends)) {
+                            dividends.value = data.dividends;
+                        }
+                        
+                        // 更新持股數據
+                        updateHoldingsData();
+                        
+                        // 更新所有統計數據
+                        updateAllStats();
+                        
+                        // 保存到本地儲存
+                        saveDataToStorage();
+                        
+                        // 關閉彈窗
+                        showImportExport.value = false;
+                        importJson.value = '';
+                        
+                        alert('數據導入成功！');
+                    } catch (e) {
+                        alert('JSON格式錯誤，請檢查數據格式');
+                        console.error('導入數據失敗', e);
+                    }
+                };
+                
+                // 確認重置數據
+                const confirmResetData = () => {
+                    showResetConfirm.value = true;
+                };
+                
+                // 重置數據
+                const resetData = () => {
+                    loadDefaultData();
+                    updateHoldingsData();
+                    updateAllStats();
+                    saveDataToStorage();
+                    showResetConfirm.value = false;
+                    showImportExport.value = false;
+                    
+                    alert('數據已重置為初始狀態');
+                };
+                
+                // 初始化：從本地儲存載入數據
+                onMounted(() => {
+                    loadDataFromStorage();
+                    
+                    // 初始化所有持股的prevPrice
+                    holdings.value.forEach(holding => {
+                        if (!holding.prevPrice) {
+                            holding.prevPrice = holding.currentPrice;
+                        }
+                    });
+                    
+                    // 監聽數據變化，自動保存到本地儲存
+                    // 注意：這裡使用watchEffect來監聽所有數據變化
+                    // 但在實際應用中，我們會在數據變更時手動呼叫saveDataToStorage
+                });
+                
+                return {
+                    currentTab,
+                    isDarkMode,
+                    viewAllTransactions,
+                    viewAllDividends,
+                    selectedStock,
+                    showImportExport,
+                    showResetConfirm,
+                    importJson,
+                    isRefreshing,
+                    tabs,
+                    holdings,
+                    transactions,
+                    dividends,
+                    newTransaction,
+                    newDividend,
+                    jsonFormatExample,
+                    totalCost,
+                    totalMarketValue,
+                    totalUnrealizedProfit,
+                    totalDividends,
+                    totalReturnRate,
+                    annualizedReturn,
+                    monthlyDividends,
+                    yearlyDividends,
+                    upcomingDividends,
+                    lowPriceStocks,
+                    sortedTransactions,
+                    sortedDividends,
+                    addTransaction,
+                    addDividend,
+                    updateStockPrice,
+                    refreshAllPrices,
+                    viewStockDetail,
+                    getStockName,
+                    getPriceChangeClass,
+                    getStockTransactions,
+                    formatNumber,
+					editingPrice,  // 添加這一行
+					// 新增刪除功能
+					deleteTransaction,
+					deleteDividend,
+					deleteHolding,
+                    formatDate,
+                    formatDateForExport,
+                    getRandomColor,
+                    toggleTheme,
+                    exportData,
+                    handleFileImport,
+                    importDataFromJson,
+                    loadSampleData,
+                    confirmResetData,
+					// 添加新的計算屬性
+					totalAdjustedReturn,
+					upcomingDividendsMessage,
+					totalAdjustedReturnRate,
+					totalAdjustedMarketValue,
+                    resetData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
